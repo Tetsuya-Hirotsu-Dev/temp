@@ -24,23 +24,23 @@ export class TextBox {
   #callbackFormats = [];
 
   /**
-   * @callback CallbackCorrect
+   * @callback CallbackCheck
    * @param {string} value
    * @param {string} lastFormattedValue
    * @returns {{validValue: string} | {errorMessage: string, correctFormattedValue: string}} result
    */
-  /** @type {CallbackCorrect[]} */
-  #callbackCorrects = [];
+  /** @type {CallbackCheck[]} */
+  #callbackChecks = [];
 
   /**
-   * @callback CallbackMultipleCorrect
+   * @callback CallbackMultipleCheck
    * @param {string} senderValue
    * @param {string} senderLastFormattedValue
    * @param {TextBox} SenderTextBox
    * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
    */
-  /** @type {CallbackMultipleCorrect[]} */
-  #callbackMultipleCorrects = [];
+  /** @type {CallbackMultipleCheck[]} */
+  #callbackMultipleChecks = [];
 
   /**
    * 値を書式化して返す
@@ -75,10 +75,10 @@ export class TextBox {
    * @param {string} value
    * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
    */
-  async correct(value) {
+  async check(value) {
     let val = value;
-    for (const cbCrct of this.#callbackCorrects) {
-      const result = cbCrct(val, this.#lastFormattedValue);
+    for (const cbChk of this.#callbackChecks) {
+      const result = cbChk(val, this.#lastFormattedValue);
       if (result.errorMessage) {
         return {
           errorMessage: result.errorMessage,
@@ -88,8 +88,8 @@ export class TextBox {
       }
       val = result.validValue;
     }
-    for (const cbMltCrct of this.#callbackMultipleCorrects) {
-      const result = await cbMltCrct(val, this.#lastFormattedValue, this);
+    for (const cbMltChk of this.#callbackMultipleChecks) {
+      const result = await cbMltChk(val, this.#lastFormattedValue, this);
       if (result.errorMessage) {
         return {
           errorMessage: result.errorMessage,
@@ -107,13 +107,34 @@ export class TextBox {
    *
    * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
    */
-  async correctFromInput() {
-    return await this.correct(this.#input.value);
+  async checkFromInput() {
+    return await this.check(this.#input.value);
   }
 
+  /**
+   *
+   * @returns {Promise<{string | null}>}
+   */
+  correct = async () => {
+    const result = this.checkFromInput();
+    if (!result.errorMessage) {
+      this.formatToInput(result.validValue);
+      return this.checkFromInput().validValue;
+    }
+  };
+
+  /**
+   * @constructor
+   * @param {HTMLInputElement} input
+   * @param {HTMLLabelElement} label
+   * @param {string} validValue
+   */
   constructor(input, label, validValue = "") {
     this.#input = input;
     this.#label = label;
     this.formatToInput(validValue);
+    this.#input.addEventListener("click", () => {
+      //
+    });
   }
 }
