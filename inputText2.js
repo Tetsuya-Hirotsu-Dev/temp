@@ -1,19 +1,44 @@
-'use strict';
+"use strict";
 
-import * as utl from './utils.js';
+import * as utl from "./utils.js";
 
 //////////////////////////////////////////////////////////////////////
 //  class TextBox
 //////////////////////////////////////////////////////////////////////
 export class TextBox {
+  /** @type {HTMLInputElement} */
   #input;
-  #label;
-  #lastEncodedValue;
-  #callbackMultipleCorrect;
 
-  #isTrim = true;
-  #minLength;
-  #maxLength;
+  /** @type {HTMLLabelElement} */
+  #label;
+
+  /** @type {string} */
+  #lastEncodedValue;
+
+  /**
+   * @callback CallbackFormat
+   * @param {string} validValue
+   * @returns {string} formattedValue
+   */
+  /** @type {CallbackFormat[]} */
+  #callbackFormats = [];
+
+  /**
+   * @callback CallbackCorrect
+   * @param {string} value
+   * @param {string} lastEncodedValue
+   * @returns {{validValue: string} | {errorMessage: string, correctEncodedValue: string}} result
+   */
+  /** @type {CallbackCorrect[]} */
+  #callbackCorrects = [];
+
+  /**
+   * @callback CallbackMultipleCorrect
+   * @param {TextBox} sender
+   * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctEncodedValues: string[]}>} result
+   */
+  /** @type {CallbackMultipleCorrect[]} */
+  #callbackMultipleCorrects = [];
 
   /**
    * 値を書式化して返す
@@ -23,7 +48,12 @@ export class TextBox {
    * @returns {string} encodedValue
    */
   encode(validValue) {
-    const val = this.#isTrim ? validValue.trim() : validValue;
+    let val = validValue;
+    if (this.#callbackFormats) {
+      for (const cbFmt of this.#callbackFormats) {
+        val = cbFmt(val);
+      }
+    }
     return val;
   }
 
@@ -44,27 +74,40 @@ export class TextBox {
    *
    * @function decode
    * @param {string} value
-   * @returns {object} ok: {validValue: string}
-   *                   err: {errorMessage: string, correctEncodedValue: string}
+   * @returns {{validValue: string} | {errorMessage: string, correctEncodedValue: string}} result
    */
   decode(value) {
-    const val = this.#isTrim ? value.trim() : value;
-    if (this.#minLength != null && val.length < this.#minLength) {
-      return { errorMessage: '', correctEncodedValue: '' };
+    let val = value;
+    if (this.#callbackCorrects) {
+      for (const cbCrct of this.#callbackCorrects) {
+        const result = cbCrct(val, this.#lastEncodedValue);
+        const errMsg = result.errorMessage;
+        if (errMsg) {
+          return {
+            errorMessage: errMsg,
+            correctEncodedValue: result.correctEncodedValue,
+          };
+        }
+        val = result.validValue;
+      }
     }
-
     return { validValue: val };
   }
 
   /**
    * input.value 値の書式化を解除して、エラーチェックの結果を返す
-   * @returns {object} ok: {validValue: string}
-   *                   err: {errorMessage: string, correctEncodedValue: string}
+   *
+   * @function decodeFromInput
+   * @returns {{validValue: string} | {errorMessage: string, correctEncodedValue: string}} result
    */
   decodeFromInput() {
     return this.decode(this.#input.value);
   }
 
+  /**
+   * @function correctValue
+   * @returns {Promise<{ validValue: string } | {}>}
+   */
   correctValue = async () => {
     const textBoxes = [];
     const correctEncVals = [];
@@ -76,12 +119,15 @@ export class TextBox {
     if (errMsg) {
       textBoxes.push(this);
       correctEncVals.push(correctEncVal);
-    } else if (this.#callbackMultipleCorrect) {
-      const multipleResult = await this.#callbackMultipleCorrect(this);
-      errMsg = multipleResult.errorMessage;
-      if (errMsg) {
-        textBoxes.push(...multipleResult.textBoxes);
-        correctEncVals.push(...multipleResult.correctEncodedValues);
+    } else if (0 < this.#callbackMultipleCorrects.length) {
+      for (const cbMltCrct of this.#callbackMultipleCorrects) {
+        const mltResult = await cbMltCrct(this);
+        errMsg = mltResult.errorMessage;
+        if (errMsg) {
+          textBoxes.push(...mltResult.textBoxes);
+          correctEncVals.push(...mltResult.correctEncodedValues);
+          break;
+        }
       }
     }
     if (!errMsg) {
@@ -93,81 +139,46 @@ export class TextBox {
 
   /**
    * @constructor
-   * @param {input} input
-   * @param {HTMLElement} label
-   * @param {*} validValue
+   * @param {HTMLInputElement} input
+   * @param {HTMLLabelElement} label
+   * @param {string} validValue
    */
-  constructor(input, label, validValue = '') {
+  constructor(input, label, validValue = "") {
     this.#input = input;
     this.#label = label;
     this.encodeToInput(validValue);
-    this.#input.addEventListener('click', async () => {
+    this.#input.addEventListener("click", async () => {
       await this.correctValue();
     });
   }
 
   /**
-   * @callback CallbackMultipleCorrect
-   * @param {TextBox} sender
-   * @returns {object} ok: {validValue: string}
-   *                   err: {errorMessage: string, textBoxes: [TextBox], correctEncodedValues: [string]}
-   */
-
-  /**
-   * callbackMultipleCorrect 設定
+   * callbackFormat 追加
    *
-   * @function setCallbackMultipleCorrect
-   * @param {CallbackMultipleCorrect} callbackMultipleCorrect async
+   * @function addCallbackFormat
+   * @param {CallbackFormat} callbackFormat
    */
-  setCallbackMultipleCorrect = (callbackMultipleCorrect) => {
-    this.#callbackMultipleCorrect = callbackMultipleCorrect;
+  addCallbackFormat = (callbackFormat) => {
+    this.#callbackFormats.push(callbackFormat);
   };
 
   /**
-   * isTrim 設定
+   * callbackCorrect 追加
    *
-   * @function setIsTrim
-   * @param {boolean} isTrim
-   * @param {string} validValue
+   * @function addCallbackCorrect
+   * @param {CallbackCorrect} callbackCorrect
    */
-  setIsTrim = (isTrim, validValue = '') => {
-    if (this.#isTrim !== isTrim) {
-      this.#isTrim = isTrim;
-      const result =
-        validValue != null ? this.decode(validValue) : this.decodeFromInput();
-      this.encodeToInput(result.validValue);
-    }
+  addCallbackCorrect = (callbackCorrect) => {
+    this.#callbackCorrects.push(callbackCorrect);
   };
 
   /**
-   * minLength 設定
+   * callbackMultipleCorrect 追加
    *
-   * @function setMinLength
-   * @param {number} minLength
-   * @param {string} validValue
+   * @function addCallbackMultipleCorrect
+   * @param {CallbackMultipleCorrect} callbackMultipleCorrect
    */
-  setMinLength = (minLength, validValue = '') => {
-    if (this.#minLength !== minLength) {
-      this.#minLength = minLength;
-      const result =
-        validValue != null ? this.decode(validValue) : this.decodeFromInput();
-      this.encodeToInput(result.validValue);
-    }
-  };
-
-  /**
-   * maxLength 設定
-   *
-   * @function setMaxLength
-   * @param {number} maxLength
-   * @param {string} validValue
-   */
-  setMaxLength = (maxLength, validValue = '') => {
-    if (this.#maxLength !== maxLength) {
-      this.#maxLength = maxLength;
-      const result =
-        validValue != null ? this.decode(validValue) : this.decodeFromInput();
-      this.encodeToInput(result.validValue);
-    }
+  addCallbackMultipleCorrect = (callbackMultipleCorrect) => {
+    this.#callbackMultipleCorrects.push(callbackMultipleCorrect);
   };
 }
