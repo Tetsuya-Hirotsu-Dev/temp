@@ -34,7 +34,9 @@ export class TextBox {
 
   /**
    * @callback CallbackMultipleCorrect
-   * @param {TextBox} textBoxSender
+   * @param {string} senderValue
+   * @param {string} senderLastFormattedValue
+   * @param {TextBox} SenderTextBox
    * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
    */
   /** @type {CallbackMultipleCorrect[]} */
@@ -69,5 +71,25 @@ export class TextBox {
 
   correct(value) {
     let val = value;
+    for (const cbCrct of this.#callbackCorrects) {
+      const result = cbCrct(val, this.#lastFormattedValue);
+      if (result.errorMessage) {
+        return {
+          errorMessage: result.errorMessage,
+          textBoxes: [this],
+          correctFormattedValues: [result.correctFormattedValue],
+        };
+      }
+    }
+    for (const cbMltCrct of this.#callbackMultipleCorrects) {
+      const result = cbMltCrct(val, this.#lastFormattedValue, this);
+      if (result.errorMessage) {
+        return {
+          errorMessage: result.errorMessage,
+          textBoxes: [],
+          correctFormattedValues: [],
+        };
+      }
+    }
   }
 }
