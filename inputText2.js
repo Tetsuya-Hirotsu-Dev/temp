@@ -104,11 +104,19 @@ export class TextBox {
     return this.decode(this.#input.value);
   }
 
+  /**
+   * 値の書式化を解除して、複数 TextBox のエラーチェックの結果を返す
+   *
+   * @function multipleDecode
+   * @param {string} value
+   * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctEncodedValues: string[]}>}
+   */
   multipleDecode = async (value) => {
     /** @type {TextBox[]} */
     const textBoxes = [];
     /** @type {string[]} */
     const correctEncVals = [];
+
     let {
       validValue: validVal,
       errorMessage: errMsg,
@@ -123,6 +131,7 @@ export class TextBox {
         correctEncodedValues: correctEncVals,
       };
     }
+
     if (0 < this.#callbackMultipleCorrects.length) {
       for (const cbMltCrct of this.#callbackMultipleCorrects) {
         const mltResult = await cbMltCrct(this);
@@ -130,13 +139,26 @@ export class TextBox {
         if (errMsg) {
           textBoxes.push(...mltResult.textBoxes);
           correctEncVals.push(...mltResult.correctEncodedValues);
-          break;
+          return {
+            errorMessage: errMsg,
+            textBoxes: textBoxes,
+            correctEncodedValues: correctEncVals,
+          };
         }
       }
     }
-    if (!errMsg) {
-      return { validValue: validVal };
-    }
+
+    return { validValue: validVal };
+  };
+
+  /**
+   * input.value 値の書式化を解除して、複数 TextBox のエラーチェックの結果を返す
+   *
+   * @function multipleDecodeFromInput
+   * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctEncodedValues: string[]}>}
+   */
+  multipleDecodeFromInput = async () => {
+    return await this.multipleDecode(this.#input.value);
   };
 
   /**
@@ -151,29 +173,6 @@ export class TextBox {
     const textBoxes = [];
     /** @type {string[]} */
     const correctEncVals = [];
-    let {
-      validValue: validVal,
-      errorMessage: errMsg,
-      correctEncodedValue: correctEncVal,
-    } = this.decode(value);
-    if (errMsg) {
-      textBoxes.push(this);
-      correctEncVals.push(correctEncVal);
-    } else if (0 < this.#callbackMultipleCorrects.length) {
-      for (const cbMltCrct of this.#callbackMultipleCorrects) {
-        const mltResult = await cbMltCrct(this);
-        errMsg = mltResult.errorMessage;
-        if (errMsg) {
-          textBoxes.push(...mltResult.textBoxes);
-          correctEncVals.push(...mltResult.correctEncodedValues);
-          break;
-        }
-      }
-    }
-    if (!errMsg) {
-      return { validValue: validVal };
-    }
-
     //
   };
 
