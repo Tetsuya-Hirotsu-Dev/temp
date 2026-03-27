@@ -106,16 +106,17 @@ export class TextBox {
 
   /**
    * @function correctValue
+   * @param {string} value
    * @returns {Promise<{ validValue: string } | {}>}
    */
-  correctValue = async () => {
+  correctValue = async (value) => {
     const textBoxes = [];
     const correctEncVals = [];
     let {
       validValue: validVal,
       errorMessage: errMsg,
       correctEncodedValue: correctEncVal,
-    } = this.decodeFromInput();
+    } = this.decode(value);
     if (errMsg) {
       textBoxes.push(this);
       correctEncVals.push(correctEncVal);
