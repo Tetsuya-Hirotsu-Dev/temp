@@ -50,6 +50,25 @@ const displayError = (
     button.className =
       "w-24 cursor-pointer rounded-md border border-sky-500 bg-gray-200 px-4 hover:bg-gray-300 focus:ring-2 focus:ring-sky-700 focus:outline-none text-center";
 
+    button.addEventListener(
+      "click",
+      () => {
+        utl.displayMessageInFullScreen.close();
+        setTimeout(() => {
+          for (let i = 0; i < inputs.length; i++) {
+            /*
+            inputs[i].style.color = "";
+            inputs[i].value = rewriteVals[i];
+            inputs[i].focus();
+            inputs[i].select();
+            */
+          }
+          resolve();
+        }, 10);
+      },
+      { once: true },
+    );
+
     // utl.displayMessageInFullScreen.open の引数を msgBox のみに修正する！！！！！！！！！！！
     utl.displayMessageInFullScreen.open(msgBox);
   });
@@ -159,7 +178,7 @@ export class TextBox {
     }
 
     await displayError(
-      "「xx」で入力エラーが発生しました",
+      `「${this.#label.textContent}」で入力エラーが発生しました`,
       result.errorMessage,
       result.textBoxes,
       result.correctFormattedValues,
