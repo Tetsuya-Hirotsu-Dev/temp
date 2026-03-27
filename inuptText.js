@@ -69,7 +69,13 @@ export class TextBox {
     this.#lastFormattedValue = fmtVal;
   }
 
-  correct(value) {
+  /**
+   * 値の書式化を解除し、エラーチェックの結果を返す
+   *
+   * @param {string} value
+   * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
+   */
+  async correct(value) {
     let val = value;
     for (const cbCrct of this.#callbackCorrects) {
       const result = cbCrct(val, this.#lastFormattedValue);
@@ -80,16 +86,34 @@ export class TextBox {
           correctFormattedValues: [result.correctFormattedValue],
         };
       }
+      val = result.validValue;
     }
     for (const cbMltCrct of this.#callbackMultipleCorrects) {
-      const result = cbMltCrct(val, this.#lastFormattedValue, this);
+      const result = await cbMltCrct(val, this.#lastFormattedValue, this);
       if (result.errorMessage) {
         return {
           errorMessage: result.errorMessage,
-          textBoxes: [],
-          correctFormattedValues: [],
+          textBoxes: [...result.textBoxes],
+          correctFormattedValues: [...result.correctFormattedValues],
         };
       }
+      val = result.validValue;
     }
+    return { validValue: val };
+  }
+
+  /**
+   * input.value 値の書式化を解除し、エラーチェックの結果を返す
+   *
+   * @returns {Promise<{validValue: string} | {errorMessage: string, textBoxes: TextBox[], correctFormattedValues: string[]}>} result
+   */
+  async correctFromInput() {
+    return await this.correct(this.#input.value);
+  }
+
+  constructor(input, label, validValue = "") {
+    this.#input = input;
+    this.#label = label;
+    this.formatToInput(validValue);
   }
 }
